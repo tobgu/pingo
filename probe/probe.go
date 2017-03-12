@@ -1,4 +1,4 @@
-package client
+package probe
 
 import "fmt"
 
@@ -23,6 +23,7 @@ type Config struct {
 	Servers                   []Server `yaml:"servers"`
 }
 
-func RunClient() {
-	fmt.Println("Running client")
+func Run(config Config) error {
+	fmt.Println("Running probe", config)
+	return nil
 }

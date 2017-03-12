@@ -4,4 +4,7 @@ build:
 install:
 	go install github.com/tobgu/pingo/cmd/pingo/
 
+save-dep:
+	godep save ./...
+
 .PHONY: pingo

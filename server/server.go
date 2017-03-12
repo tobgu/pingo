@@ -7,6 +7,7 @@ type Config struct {
 	UdpPort int `yaml:"udp_port"`
 }
 
-func RunServer() {
-	fmt.Println("Running server")
+func Run(config Config) error {
+	fmt.Println("Running server", config)
+	return nil
 }
