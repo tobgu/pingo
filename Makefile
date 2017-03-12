@@ -4,6 +4,9 @@ build:
 install:
 	go install github.com/tobgu/pingo/cmd/pingo/
 
+fmt:
+	go fmt ./...
+
 save-dep:
 	godep save ./...
 
