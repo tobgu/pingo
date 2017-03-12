@@ -2,7 +2,6 @@ package probe
 
 import "fmt"
 
-
 type Server struct {
 	Name    string `yaml:"name"`
 	Address string `yaml:"address"`
