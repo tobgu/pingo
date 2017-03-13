@@ -1,6 +1,6 @@
 statistics_port: 5000
 statistics_retention_period: 3600
-ping_interval: 10
+ping_interval: 1
 connection_timeout: 5
 read_timeout: 5
 tcp_size: 10000
@@ -8,12 +8,12 @@ udp_size: 1400
 icmp_size: 100
 hosts:
   - name: host1
-    address: 192.168.0.1
+    address: 127.0.0.1
     udp_port: 9000
     tcp_port: 9001
     icmp: yes
-  - name: host2
-    address: 192.168.0.2
-    udp_port: 9000
-    tcp_port: 9001
-    icmp: yes
+#  - name: host2
+#    address: 192.168.0.2
+#    udp_port: 9000
+#    tcp_port: 9001
+#    icmp: yes
