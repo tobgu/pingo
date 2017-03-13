@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"syscall"
 	"time"
 )
 
@@ -71,54 +72,87 @@ func byteArrayEquals(a []byte, b []byte) bool {
 	return true
 }
 
+func classifyError(err error) string {
+	errorStr := ""
+
+	switch t := err.(type) {
+	case *net.OpError:
+		errorStr = fmt.Sprintf("%s_error", t.Op)
+	case syscall.Errno:
+		if t == syscall.ECONNREFUSED {
+			errorStr = "connection_refused_error"
+		} else {
+			errorStr = "unknown_syscall_error"
+		}
+	default:
+		errorStr = "unknown_error"
+	}
+
+	if netError, ok := err.(net.Error); ok && netError.Timeout() {
+		errorStr = fmt.Sprintf("%s_timeout", errorStr)
+	}
+
+	log.Println("Network error,", errorStr, ",", err)
+	return errorStr
+}
+
 func startTcpProbe(config Config, host Host, statistics *Statistics) {
 	inputBytes := make([]byte, config.TcpSize)
 	rand.Read(inputBytes)
 
+	addMetric := func(kind string, value float64) {
+		statistics.Add(host.Name, "tcp", kind, value)
+	}
+
 	doProbe := func() {
-		// TODO: Categorize error cases and store the correct metrics
-		// TODO: Proper timeouts on the connections
 		start := time.Now()
-		con, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host.Address, host.TcpPort))
+		con, err := net.DialTimeout("tcp",
+			fmt.Sprintf("%s:%d", host.Address, host.TcpPort),
+			time.Duration(config.ConnectionTimeout)*time.Second)
 		if err != nil {
-			log.Println("Error dialing TCP", err)
+			addMetric(classifyError(err), 1.0)
+			return
+		}
+
+		err = con.SetDeadline(time.Now().Add(time.Duration(config.ReadTimeout) * time.Second))
+		if err != nil {
+			addMetric(classifyError(err), 1.0)
 			return
 		}
 
 		inputBuffer := bytes.NewBuffer(inputBytes)
 		_, err = io.Copy(con, inputBuffer)
 		if err != nil {
-			log.Println("Error writing TCP buffer", err)
+			addMetric(classifyError(err), 1.0)
 			return
 		}
 
 		if tcpcon, ok := con.(*net.TCPConn); ok {
 			tcpcon.CloseWrite()
 		} else {
-			log.Println("Unexpected TCP connection type")
 			return
 		}
 
 		outputBuffer := bytes.Buffer{}
 		_, err = io.Copy(&outputBuffer, con)
 		if err != nil {
-			log.Println("Error reading TCP", err)
+			addMetric(classifyError(err), 1.0)
 			return
 		}
 
 		if !byteArrayEquals(outputBuffer.Bytes(), inputBytes) {
-			log.Println("Input and output differs")
+			addMetric("content_error", 1.0)
 			return
 		}
 
 		err = con.Close()
 		if err != nil {
-			log.Println("Error closing Connection", err)
+			addMetric(classifyError(err), 1.0)
 			return
 		}
 
 		duration := time.Now().Sub(start).Seconds()
-		statistics.Add(host.Name, "tcp", "ping_success", duration)
+		addMetric("ping_success", duration)
 	}
 
 	executeAtInterval(doProbe, config.PingInterval)
