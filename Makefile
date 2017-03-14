@@ -7,7 +7,8 @@ install:
 fmt:
 	go fmt ./...
 
-save-dep:
-	godep save ./...
+init-dep:
+	go get -u github.com/kardianos/govendor
+	govendor sync
 
 .PHONY: pingo
