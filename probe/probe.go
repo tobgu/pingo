@@ -2,11 +2,13 @@ package probe
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"math/rand"
 	"net"
+	"net/http"
 	"syscall"
 	"time"
 )
@@ -215,14 +217,19 @@ func startUdpProbe(config Config, host Host, statistics *Statistics) {
 }
 
 func Run(config Config) error {
-	s := NewStatistics(config.StatisticsRetentionPeriod)
-	for _, h := range config.Hosts {
-		startProbes(config, h, s)
+	stats := NewStatistics(config.StatisticsRetentionPeriod)
+
+	log.Println("Starting probes", config)
+	for _, host := range config.Hosts {
+		startProbes(config, host, stats)
 	}
 
-	fmt.Println("Running probes", config)
+	log.Println("Serving statistics API at port", config.StatisticsPort)
+	apiHandler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(stats.Dump())
+	}
 
-	// TODO: Statistics HTTP API
-	select {}
-	return nil
+	http.HandleFunc("/statistics", apiHandler)
+	return http.ListenAndServe(fmt.Sprintf(":%d", config.StatisticsPort), nil)
 }

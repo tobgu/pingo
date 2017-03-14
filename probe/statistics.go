@@ -1,9 +1,9 @@
 package probe
 
 import (
+	"log"
 	"sync"
 	"time"
-	"log"
 )
 
 type Protocol string
@@ -22,7 +22,7 @@ type Statistics struct {
 
 func NewStatistics(retentionPeriod int) *Statistics {
 	return &Statistics{
-		stats: map[HostName]map[Protocol][]Measurement{},
+		stats:           map[HostName]map[Protocol][]Measurement{},
 		retentionPeriod: time.Duration(retentionPeriod) * time.Second}
 }
 
@@ -40,7 +40,7 @@ func (s *Statistics) Add(host HostName, protocol Protocol, kind string, value fl
 			// Throw away half of the stats to free up memory
 			log.Println("Truncating too old statistics for", protocol, kind)
 			newLen := len(stats) / 2
-			newStats := make([]Measurement, newLen, newLen + 1)
+			newStats := make([]Measurement, newLen, newLen+1)
 			copy(newStats, stats[newLen:])
 			stats = newStats
 		}
