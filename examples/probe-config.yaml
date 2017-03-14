@@ -2,7 +2,7 @@ statistics_port: 5000
 statistics_retention_period: 5
 ping_interval: 1
 connection_timeout: 5
-read_timeout: 5
+read_timeout: 2
 tcp_size: 10000
 udp_size: 1400
 icmp_size: 100

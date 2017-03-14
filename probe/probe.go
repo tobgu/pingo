@@ -45,9 +45,6 @@ func startProbes(config Config, host Host, statistics *Statistics) {
 	// TODO: ICMP
 }
 
-func startUdpProbe(config Config, host Host, statistics *Statistics) {
-}
-
 func executeAtInterval(f func(), interval int) {
 	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	go func() {
@@ -96,9 +93,14 @@ func classifyError(err error) string {
 	return errorStr
 }
 
+func randomBytes(size int) []byte {
+	b := make([]byte, size)
+	rand.Read(b)
+	return b
+}
+
 func startTcpProbe(config Config, host Host, statistics *Statistics) {
-	inputBytes := make([]byte, config.TcpSize)
-	rand.Read(inputBytes)
+	inputBytes := randomBytes(config.TcpSize)
 
 	addMetric := func(kind string, value float64) {
 		statistics.Add(host.Name, "tcp", kind, value)
@@ -113,6 +115,8 @@ func startTcpProbe(config Config, host Host, statistics *Statistics) {
 			addMetric(classifyError(err), 1.0)
 			return
 		}
+
+		defer con.Close()
 
 		err = con.SetDeadline(time.Now().Add(time.Duration(config.ReadTimeout) * time.Second))
 		if err != nil {
@@ -130,6 +134,7 @@ func startTcpProbe(config Config, host Host, statistics *Statistics) {
 		if tcpcon, ok := con.(*net.TCPConn); ok {
 			tcpcon.CloseWrite()
 		} else {
+			log.Println("Connection was not of type TCP, this was unexpected...")
 			return
 		}
 
@@ -145,9 +150,60 @@ func startTcpProbe(config Config, host Host, statistics *Statistics) {
 			return
 		}
 
-		err = con.Close()
+		duration := time.Now().Sub(start).Seconds()
+		addMetric("ping_success", duration)
+	}
+
+	executeAtInterval(doProbe, config.PingInterval)
+}
+
+func startUdpProbe(config Config, host Host, statistics *Statistics) {
+	inputBytes := randomBytes(config.UdpSize)
+
+	addMetric := func(kind string, value float64) {
+		statistics.Add(host.Name, "udp", kind, value)
+	}
+
+	doProbe := func() {
+		start := time.Now()
+		con, err := net.DialTimeout("udp",
+			fmt.Sprintf("%s:%d", host.Address, host.UdpPort),
+			time.Duration(config.ConnectionTimeout)*time.Second)
 		if err != nil {
 			addMetric(classifyError(err), 1.0)
+			return
+		}
+
+		defer con.Close()
+
+		err = con.SetDeadline(time.Now().Add(time.Duration(config.ReadTimeout) * time.Second))
+		if err != nil {
+			addMetric(classifyError(err), 1.0)
+			return
+		}
+
+		inputBuffer := bytes.NewBuffer(inputBytes)
+		_, err = io.Copy(con, inputBuffer)
+		if err != nil {
+			addMetric(classifyError(err), 1.0)
+			return
+		}
+
+		udpCon, ok := con.(*net.UDPConn)
+		if !ok {
+			fmt.Println("Connection was not of type UDP, this was unexpected...")
+			return
+		}
+
+		outputBytes := make([]byte, len(inputBytes))
+		n, _, err := udpCon.ReadFromUDP(outputBytes)
+		if err != nil {
+			addMetric(classifyError(err), 1.0)
+			return
+		}
+
+		if !byteArrayEquals(outputBytes[:n], inputBytes) {
+			addMetric("content_error", 1.0)
 			return
 		}
 
