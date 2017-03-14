@@ -1,5 +1,5 @@
 statistics_port: 5000
-statistics_retention_period: 3600
+statistics_retention_period: 5
 ping_interval: 1
 connection_timeout: 5
 read_timeout: 5

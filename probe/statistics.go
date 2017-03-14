@@ -3,6 +3,7 @@ package probe
 import (
 	"sync"
 	"time"
+	"log"
 )
 
 type Protocol string
@@ -15,24 +16,37 @@ type Measurement struct {
 
 type Statistics struct {
 	lock            sync.Mutex
-	retentionPeriod int
+	retentionPeriod time.Duration
 	stats           map[HostName]map[Protocol][]Measurement
 }
 
 func NewStatistics(retentionPeriod int) *Statistics {
-	return &Statistics{stats: map[HostName]map[Protocol][]Measurement{}, retentionPeriod: retentionPeriod}
+	return &Statistics{
+		stats: map[HostName]map[Protocol][]Measurement{},
+		retentionPeriod: time.Duration(retentionPeriod) * time.Second}
 }
 
 func (s *Statistics) Add(host HostName, protocol Protocol, kind string, value float64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	// TODO: Enforce retention period
 	if _, ok := s.stats[host]; !ok {
 		s.stats[host] = make(map[Protocol][]Measurement)
 	}
 
-	s.stats[host][protocol] = append(s.stats[host][protocol],
-		Measurement{Kind: kind, TimeStamp: time.Now().UnixNano(), Value: value})
+	stats := s.stats[host][protocol]
+	if len(stats) > 0 {
+		statAge := time.Now().Sub(time.Unix(0, stats[0].TimeStamp))
+		if statAge > s.retentionPeriod {
+			// Throw away half of the stats to free up memory
+			log.Println("Truncating too old statistics for", protocol, kind)
+			newLen := len(stats) / 2
+			newStats := make([]Measurement, newLen, newLen + 1)
+			copy(newStats, stats[newLen:])
+			stats = newStats
+		}
+	}
+
+	s.stats[host][protocol] = append(stats, Measurement{Kind: kind, TimeStamp: time.Now().UnixNano(), Value: value})
 }
 
 func (s *Statistics) Dump() map[HostName]map[Protocol][]Measurement {
