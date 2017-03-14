@@ -1,17 +1,35 @@
+# Port to serve the statistics on. JSON encoded stats will
+# be available on http://addr:<statistics_port>/statistics
 statistics_port: 5000
+
+# Statistics are reset when polled on the above URL.
+# This parameter controls for how long to keep statistics if
+# they are not polled.
+# Unit: seconds
 statistics_retention_period: 5
+
+# How often to ping the servers
+# Unit: seconds
 ping_interval: 1
+
+# Network timeouts
+# Unit: seconds
 connection_timeout: 5
 read_timeout: 2
+
+# Size of the data used for pinging the servers with
 tcp_size: 10000
 udp_size: 1400
 icmp_size: 100
+
+# List of hosts where servers are running that should be pinged.
+# If tcp_port is given, TCP pinging will be activated.
+# If udp_port is given, UDP pinging will be activated.
 hosts:
   - name: host1
     address: 127.0.0.1
     udp_port: 9000
     tcp_port: 9001
-    icmp: yes
 #  - name: host2
 #    address: 192.168.0.2
 #    udp_port: 9000

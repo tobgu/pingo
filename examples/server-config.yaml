@@ -1,3 +1,8 @@
+# UDP port to start echo server on, if 0 or not present no UDP server will be started
 udp_port: 9000
+
+# TCP port to start echo server on, if 0 or not present no TCP server will be started
 tcp_port: 9001
+
+# Timeout before terminating inactive incoming TCP connections
 tcp_timeout: 10
