@@ -1,4 +1,7 @@
 Revision history
 ----------------
+v0.1.1, 2017-03-18
+* Simplify TCP probe.
+
 v0.1.0, 2017-03-14
 * Initial release, basic echo server and probe for TCP and UDP.
