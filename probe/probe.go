@@ -103,6 +103,7 @@ func randomBytes(size int) []byte {
 
 func startTcpProbe(config Config, host Host, statistics *Statistics) {
 	inputBytes := randomBytes(config.TcpSize)
+	outputBytes := make([]byte, config.TcpSize)
 
 	addMetric := func(kind string, value float64) {
 		statistics.Add(host.Name, "tcp", kind, value)
@@ -126,28 +127,20 @@ func startTcpProbe(config Config, host Host, statistics *Statistics) {
 			return
 		}
 
-		inputBuffer := bytes.NewBuffer(inputBytes)
-		_, err = io.Copy(con, inputBuffer)
+		_, err = con.Write(inputBytes)
 		if err != nil {
 			addMetric(classifyError(err), 1.0)
 			return
 		}
 
-		if tcpcon, ok := con.(*net.TCPConn); ok {
-			tcpcon.CloseWrite()
-		} else {
-			log.Println("Connection was not of type TCP, this was unexpected...")
-			return
-		}
-
-		outputBuffer := bytes.Buffer{}
-		_, err = io.Copy(&outputBuffer, con)
+		_, err = con.Read(outputBytes)
 		if err != nil {
+			log.Println("Error reading")
 			addMetric(classifyError(err), 1.0)
 			return
 		}
 
-		if !byteArrayEquals(outputBuffer.Bytes(), inputBytes) {
+		if !byteArrayEquals(outputBytes, inputBytes) {
 			addMetric("content_error", 1.0)
 			return
 		}
