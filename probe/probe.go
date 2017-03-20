@@ -133,7 +133,7 @@ func startTcpProbe(config Config, host Host, statistics *Statistics) {
 			return
 		}
 
-		_, err = con.Read(outputBytes)
+		_, err = io.ReadFull(con, outputBytes)
 		if err != nil {
 			log.Println("Error reading")
 			addMetric(classifyError(err), 1.0)
@@ -141,6 +141,7 @@ func startTcpProbe(config Config, host Host, statistics *Statistics) {
 		}
 
 		if !byteArrayEquals(outputBytes, inputBytes) {
+			log.Println("Content error")
 			addMetric("content_error", 1.0)
 			return
 		}
