@@ -121,6 +121,7 @@ func startTcpProbe(config Config, host Host, statistics *Statistics) {
 
 		defer con.Close()
 
+		t0 := time.Now()
 		err = con.SetDeadline(time.Now().Add(time.Duration(config.ReadTimeout) * time.Second))
 		if err != nil {
 			addMetric(classifyError(err), 1.0)
@@ -129,13 +130,21 @@ func startTcpProbe(config Config, host Host, statistics *Statistics) {
 
 		_, err = con.Write(inputBytes)
 		if err != nil {
+			log.Println("Write error after", time.Now().Sub(t0))
 			addMetric(classifyError(err), 1.0)
+			return
+		}
+
+		if tcpcon, ok := con.(*net.TCPConn); ok {
+			tcpcon.CloseWrite()
+		} else {
+			log.Println("Connection was not of type TCP, this was unexpected...")
 			return
 		}
 
 		_, err = io.ReadFull(con, outputBytes)
 		if err != nil {
-			log.Println("Error reading")
+			log.Println("Read error after", time.Now().Sub(t0))
 			addMetric(classifyError(err), 1.0)
 			return
 		}
@@ -187,7 +196,7 @@ func startUdpProbe(config Config, host Host, statistics *Statistics) {
 
 		udpCon, ok := con.(*net.UDPConn)
 		if !ok {
-			fmt.Println("Connection was not of type UDP, this was unexpected...")
+			log.Println("Connection was not of type UDP, this was unexpected...")
 			return
 		}
 

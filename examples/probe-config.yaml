@@ -18,7 +18,7 @@ connection_timeout: 5
 read_timeout: 2
 
 # Size of the data used for pinging the servers with
-tcp_size: 1000000
+tcp_size: 10000000
 udp_size: 1400
 icmp_size: 100
 

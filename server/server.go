@@ -3,7 +3,7 @@ package server
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"time"
@@ -61,10 +61,24 @@ func runTcpServer(port, timeout int) error {
 
 func echoTcp(client net.Conn) {
 	defer client.Close()
-	_, err := io.Copy(client, client)
+
+	// Since the client will first submit all data and then read it back
+	// we first read all data then submit the answer instead of streaming
+	// it since that risk filling up TCP buffers in the client for large
+	// payloads. We also want to measure the true roundtrip time without
+	// pipelining of data transmission back and forth.
+	buf, err := ioutil.ReadAll(client)
 	if err != nil {
-		log.Println("Error echoing TCP data", err)
+		log.Println("Error reading TCP data", len(buf), err)
+		return
 	}
+
+	n, err := client.Write(buf)
+	if err != nil {
+		log.Println("Error writing TCP data", n, err)
+		return
+	}
+
 }
 
 type Config struct {
