@@ -1,5 +1,8 @@
 Revision history
 ----------------
+v0.1.2, 2017-03-20
+* Make sure to always read full TCP buffer.
+
 v0.1.1, 2017-03-18
 * Simplify TCP probe.
 
