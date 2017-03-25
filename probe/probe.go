@@ -37,7 +37,8 @@ type Config struct {
 
 func startProbes(config Config, host Host, statistics *Statistics) {
 	if host.TcpPort != 0 {
-		startTcpProbe(config, host, statistics)
+		p := newTcp(config, host, statistics)
+		executeAtInterval(p.execute, config.PingInterval)
 	}
 
 	if host.UdpPort != 0 {
@@ -99,67 +100,6 @@ func randomBytes(size int) []byte {
 	b := make([]byte, size)
 	rand.Read(b)
 	return b
-}
-
-func startTcpProbe(config Config, host Host, statistics *Statistics) {
-	inputBytes := randomBytes(config.TcpSize)
-	outputBytes := make([]byte, config.TcpSize)
-
-	addMetric := func(kind string, value float64) {
-		statistics.Add(host.Name, "tcp", kind, value)
-	}
-
-	doProbe := func() {
-		start := time.Now()
-		con, err := net.DialTimeout("tcp",
-			fmt.Sprintf("%s:%d", host.Address, host.TcpPort),
-			time.Duration(config.ConnectionTimeout)*time.Second)
-		if err != nil {
-			addMetric(classifyError(err), 1.0)
-			return
-		}
-
-		defer con.Close()
-
-		t0 := time.Now()
-		err = con.SetDeadline(time.Now().Add(time.Duration(config.ReadTimeout) * time.Second))
-		if err != nil {
-			addMetric(classifyError(err), 1.0)
-			return
-		}
-
-		_, err = con.Write(inputBytes)
-		if err != nil {
-			log.Println("Write error after", time.Now().Sub(t0))
-			addMetric(classifyError(err), 1.0)
-			return
-		}
-
-		if tcpcon, ok := con.(*net.TCPConn); ok {
-			tcpcon.CloseWrite()
-		} else {
-			log.Println("Connection was not of type TCP, this was unexpected...")
-			return
-		}
-
-		_, err = io.ReadFull(con, outputBytes)
-		if err != nil {
-			log.Println("Read error after", time.Now().Sub(t0))
-			addMetric(classifyError(err), 1.0)
-			return
-		}
-
-		if !byteArrayEquals(outputBytes, inputBytes) {
-			log.Println("Content error")
-			addMetric("content_error", 1.0)
-			return
-		}
-
-		duration := time.Now().Sub(start).Seconds()
-		addMetric("ping_success", duration)
-	}
-
-	executeAtInterval(doProbe, config.PingInterval)
 }
 
 func startUdpProbe(config Config, host Host, statistics *Statistics) {
