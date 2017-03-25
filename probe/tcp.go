@@ -9,20 +9,20 @@ import (
 )
 
 type tcpProbe struct {
+	probe
 	inputBytes  []byte
 	outputBytes []byte
-	config      Config
-	host        Host
-	statistics  *Statistics
 }
 
 func newTcp(config Config, host Host, statistics *Statistics) *tcpProbe {
 	return &tcpProbe{
+		probe: probe{
+			host:       host,
+			statistics: statistics,
+			config:     config,
+		},
 		inputBytes:  randomBytes(config.TcpSize),
 		outputBytes: make([]byte, config.TcpSize),
-		host: host,
-		statistics: statistics,
-		config: config,
 	}
 }
 

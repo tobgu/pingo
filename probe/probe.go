@@ -1,10 +1,8 @@
 package probe
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -35,6 +33,12 @@ type Config struct {
 	Hosts                     []Host `yaml:"hosts"`
 }
 
+type probe struct {
+	config     Config
+	host       Host
+	statistics *Statistics
+}
+
 func startProbes(config Config, host Host, statistics *Statistics) {
 	if host.TcpPort != 0 {
 		p := newTcp(config, host, statistics)
@@ -42,10 +46,11 @@ func startProbes(config Config, host Host, statistics *Statistics) {
 	}
 
 	if host.UdpPort != 0 {
-		startUdpProbe(config, host, statistics)
+		p := newUdp(config, host, statistics)
+		executeAtInterval(p.execute, config.PingInterval)
 	}
 
-	// TODO: ICMP
+	// TODO: ICMP, HTTP
 }
 
 func executeAtInterval(f func(), interval int) {
@@ -100,63 +105,6 @@ func randomBytes(size int) []byte {
 	b := make([]byte, size)
 	rand.Read(b)
 	return b
-}
-
-func startUdpProbe(config Config, host Host, statistics *Statistics) {
-	inputBytes := randomBytes(config.UdpSize)
-
-	addMetric := func(kind string, value float64) {
-		statistics.Add(host.Name, "udp", kind, value)
-	}
-
-	doProbe := func() {
-		start := time.Now()
-		con, err := net.DialTimeout("udp",
-			fmt.Sprintf("%s:%d", host.Address, host.UdpPort),
-			time.Duration(config.ConnectionTimeout)*time.Second)
-		if err != nil {
-			addMetric(classifyError(err), 1.0)
-			return
-		}
-
-		defer con.Close()
-
-		err = con.SetDeadline(time.Now().Add(time.Duration(config.ReadTimeout) * time.Second))
-		if err != nil {
-			addMetric(classifyError(err), 1.0)
-			return
-		}
-
-		inputBuffer := bytes.NewBuffer(inputBytes)
-		_, err = io.Copy(con, inputBuffer)
-		if err != nil {
-			addMetric(classifyError(err), 1.0)
-			return
-		}
-
-		udpCon, ok := con.(*net.UDPConn)
-		if !ok {
-			log.Println("Connection was not of type UDP, this was unexpected...")
-			return
-		}
-
-		outputBytes := make([]byte, len(inputBytes))
-		n, _, err := udpCon.ReadFromUDP(outputBytes)
-		if err != nil {
-			addMetric(classifyError(err), 1.0)
-			return
-		}
-
-		if !byteArrayEquals(outputBytes[:n], inputBytes) {
-			addMetric("content_error", 1.0)
-			return
-		}
-
-		duration := time.Now().Sub(start).Seconds()
-		addMetric("ping_success", duration)
-	}
-
-	executeAtInterval(doProbe, config.PingInterval)
 }
 
 func Run(config Config) error {
