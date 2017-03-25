@@ -23,6 +23,8 @@ A collection of smaller and larger tasks that would be nice to implement in this
   
 * White listing of IP addresses that may access servers and probes.
 
+* Add "server less" pinging against arbitrary HTTP(s) or ICMP endpoints that do not have to run pingo servers.
+
 Request header format v1
 ------------------------
 A 20 byte header will always be present 
